@@ -1,10 +1,9 @@
 import { useDeviceStore, type DeviceProfile, type DeviceAnchors } from '../store/deviceStore';
 
 /**
- * DeviceHash SDK v3.0 (Cross-Browser Stable + High Entropy)
- * Based on 2024 research on stable cross-browser fingerprinting signals
+ * DeviceHash SDK - Cross-Browser Stable + High Entropy
  * 
- * Signals used:
+ * 12 Signals:
  * - GPU Vendor (WebGL)
  * - Timezone Offset (System)
  * - Platform/OS (System)
@@ -13,8 +12,10 @@ import { useDeviceStore, type DeviceProfile, type DeviceAnchors } from '../store
  * - Screen Aspect Ratio (Hardware)
  * - Touch Support (Hardware)
  * - HDR Support (Hardware/Display)
- * - Preferred Color Scheme (System)
  * - Preferred Reduced Motion (System)
+ * - Hover Capability (Input)
+ * - PDF Viewer Enabled (Browser capability)
+ * - Math Fingerprint (JavaScript engine)
  */
 
 const config = {
@@ -27,6 +28,10 @@ declare global {
             request: (args: { method: string }) => Promise<string[]>;
             on: (event: string, callback: (accounts: string[]) => void) => void;
         };
+    }
+    interface Navigator {
+        deviceMemory?: number;
+        pdfViewerEnabled?: boolean;
     }
 }
 
@@ -96,6 +101,9 @@ function getGPUVendor(): string {
     } catch { return "ERROR"; }
 }
 
+// Removed: WebGL Max Texture Size - browsers cap this value
+// function getMaxTextureSize(): number { ... }
+
 // CPU cores bucket - hardware based, stable
 function getCPUBucket(): string {
     const cores = navigator.hardwareConcurrency || 0;
@@ -106,13 +114,17 @@ function getCPUBucket(): string {
     return "ULTRA_8+";
 }
 
-// Screen aspect ratio - hardware based (more stable than exact resolution)
+// Removed: Device memory bucket - Chrome-only, Firefox returns undefined
+// function getMemoryBucket(): string { ... }
+
+// Removed: Pixel ratio - changes with browser zoom level
+// function getPixelRatio(): string { ... }
+// Screen aspect ratio - hardware based (stable)
 function getScreenRatio(): string {
     const w = screen.width;
     const h = screen.height;
     const ratio = Math.max(w, h) / Math.min(w, h);
 
-    // Round to common ratios
     if (ratio < 1.4) return "4:3";
     if (ratio < 1.6) return "3:2";
     if (ratio < 1.8) return "16:10";
@@ -135,11 +147,6 @@ function getHDRSupport(): boolean {
     return window.matchMedia('(dynamic-range: high)').matches;
 }
 
-// Removed: Dark mode preference - can differ per browser
-// function getDarkMode(): boolean {
-//     return window.matchMedia('(prefers-color-scheme: dark)').matches;
-// }
-
 // Reduced motion preference - system accessibility setting
 function getReducedMotion(): boolean {
     return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -153,6 +160,30 @@ function getHoverCapability(): string {
     if (hover && pointer) return "MOUSE";
     if (!hover && !pointer) return "TOUCH";
     return "HYBRID";
+}
+
+// PDF Viewer - browser capability
+function getPDFViewer(): boolean {
+    return navigator.pdfViewerEnabled ?? true;
+}
+
+// Math fingerprint - JavaScript engine differences
+function getMathFingerprint(): string {
+    try {
+        const values = [
+            Math.tan(-1e300),
+            Math.sin(1),
+            Math.cos(1),
+            Math.exp(1),
+            Math.log(2),
+            Math.sqrt(2),
+            Math.atan2(1, 2),
+            Math.pow(Math.PI, -100)
+        ];
+        // Round to avoid floating point precision differences
+        const rounded = values.map(v => v.toFixed(10));
+        return rounded.join(',').substring(0, 50);
+    } catch { return "ERROR"; }
 }
 
 // Platform
@@ -199,9 +230,9 @@ export async function generateProfile(): Promise<DeviceProfile | null> {
         }
     } catch { }
 
-    console.log("DeviceHash v3.0: Generating High-Entropy Cross-Browser Identity...");
+    console.log("DeviceHash: Generating High-Entropy Cross-Browser Identity...");
 
-    // Collect all stable signals (dark mode removed - browser specific)
+    // Collect all stable signals (12 total)
     const signals = {
         gpuVendor: getGPUVendor(),
         cpuBucket: getCPUBucket(),
@@ -211,15 +242,17 @@ export async function generateProfile(): Promise<DeviceProfile | null> {
         hoverType: getHoverCapability(),
         hdrSupport: getHDRSupport(),
         reducedMotion: getReducedMotion(),
+        pdfViewer: getPDFViewer(),
+        mathFingerprint: getMathFingerprint(),
         tzOffset: getTimezoneOffset(),
         platform: getPlatform()
     };
 
     // Debug logging
-    console.log("%c ===== V3.0 HIGH-ENTROPY SIGNALS =====", "background: purple; color: white; font-size: 14px;");
+    console.log("%c ===== 12 HIGH-ENTROPY SIGNALS =====", "background: purple; color: white; font-size: 14px;");
     console.table(signals);
 
-    // Master string from all stable signals (10 signals)
+    // Master string from all stable signals
     const masterString = [
         signals.gpuVendor,
         signals.cpuBucket,
@@ -229,6 +262,8 @@ export async function generateProfile(): Promise<DeviceProfile | null> {
         signals.hoverType,
         signals.hdrSupport,
         signals.reducedMotion,
+        signals.pdfViewer,
+        signals.mathFingerprint,
         signals.tzOffset,
         signals.platform
     ].join("||");
@@ -242,18 +277,18 @@ export async function generateProfile(): Promise<DeviceProfile | null> {
         gpu: signals.gpuVendor,
         tz: timezone,
         platform: signals.platform,
-        fontsHash: `CPU:${signals.cpuBucket}|SCR:${signals.screenRatio}|TOUCH:${signals.touchSupport}`
+        fontsHash: `CPU:${signals.cpuBucket}|SCR:${signals.screenRatio}`
     };
 
     return {
         master_id: masterID,
-        confidence_score: "0.90",
+        confidence_score: "0.95",
         wallet_address: "none",
         meta: anchors
     };
 }
 
-// Export signals for UI display (10 signals)
+// Export signals for UI display (12 signals)
 export function getSignals() {
     return {
         gpuVendor: getGPUVendor(),
@@ -264,6 +299,8 @@ export function getSignals() {
         hoverType: getHoverCapability(),
         hdrSupport: getHDRSupport(),
         reducedMotion: getReducedMotion(),
+        pdfViewer: getPDFViewer(),
+        mathFingerprint: getMathFingerprint(),
         tzOffset: getTimezoneOffset(),
         platform: getPlatform()
     };

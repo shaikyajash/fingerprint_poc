@@ -1,12 +1,18 @@
 import { useDeviceStore, type DeviceProfile, type DeviceAnchors } from '../store/deviceStore';
 
+/**
+ * DeviceHash SDK v2.1 (Edge + Fractional Pixel Fix)
+ * - Adds tolerance for sub-pixel rendering differences
+ * - Aggressively normalizes GPU strings
+ */
+
 const config = {
     blockedStorageKey: "DH_BLACKLIST",
+    // Reduced list to the most "Hardcore Stable" fonts
     fontList: [
-        "Arial", "Arial Black", "Calibri", "Cambria", "Comic Sans MS", "Consolas",
-        "Courier New", "Georgia", "Helvetica", "Impact", "Lucida Console",
-        "Microsoft Sans Serif", "Segoe UI", "Tahoma", "Times New Roman",
-        "Trebuchet MS", "Verdana", "Roboto", "Open Sans", "Ubuntu"
+        "Arial", "Courier New", "Georgia", "Impact",
+        "Lucida Console", "Tahoma", "Times New Roman",
+        "Trebuchet MS", "Verdana", "Segoe UI"
     ]
 };
 
@@ -27,11 +33,10 @@ async function sha256(message: string): Promise<string> {
             return Array.from(new Uint8Array(hashBuffer))
                 .map(b => b.toString(16).padStart(2, '0')).join('');
         }
-    } catch (e) { }
+    } catch { }
     let hash = 0;
     for (let i = 0; i < message.length; i++) {
-        const char = message.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
+        hash = ((hash << 5) - hash) + message.charCodeAt(i);
         hash = hash & hash;
     }
     return (Math.abs(hash)).toString(16);
@@ -64,7 +69,9 @@ async function getFontHash(): Promise<string> {
     const baseFonts = ["monospace", "sans-serif", "serif"];
     const testString = "mmMwWlli";
     const span = document.createElement("span");
-    span.style.cssText = "font-size:72px; position:absolute; left:-9999px; pointer-events:none;";
+
+    // Use exact pixel sizing to minimize variation
+    span.style.cssText = "font-size:72px; position:absolute; left:-9999px; pointer-events:none; margin:0; padding:0;";
     span.textContent = testString;
 
     try { container.appendChild(span); } catch { return "DOM_BLOCKED"; }
@@ -74,9 +81,13 @@ async function getFontHash(): Promise<string> {
         let found = false;
         for (const base of baseFonts) {
             span.style.fontFamily = base;
-            const w1 = span.offsetWidth;
+            const baseWidth = span.offsetWidth;
+
             span.style.fontFamily = `"${font}", ${base}`;
-            if (span.offsetWidth !== w1) {
+            const targetWidth = span.offsetWidth;
+
+            // Allow 1px tolerance for rounding errors (fractional pixel fix)
+            if (Math.abs(targetWidth - baseWidth) > 1) {
                 found = true;
                 break;
             }
@@ -85,21 +96,6 @@ async function getFontHash(): Promise<string> {
     }
     try { container.removeChild(span); } catch { }
     return await sha256(detected.join("|"));
-}
-
-async function getCanvasHash(): Promise<string> {
-    try {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return "CTX_BLOCKED";
-        ctx.textBaseline = "top";
-        ctx.font = "14px 'Arial'";
-        ctx.fillStyle = "#f60";
-        ctx.fillRect(125, 1, 62, 20);
-        ctx.fillStyle = "#069";
-        ctx.fillText("DeviceHash v2", 2, 15);
-        return await sha256(canvas.toDataURL());
-    } catch { return "CANVAS_BLOCKED"; }
 }
 
 export function initWalletListener(): void {
@@ -131,8 +127,9 @@ export async function generateProfile(): Promise<DeviceProfile | null> {
         }
     } catch { }
 
-    console.log("DeviceHash: Generating Identity...");
+    console.log("DeviceHash v2.1: Generating Identity...");
 
+    // GPU Aggressive Normalization
     const gpuData = ((): string => {
         try {
             const canvas = document.createElement('canvas');
@@ -149,6 +146,8 @@ export async function generateProfile(): Promise<DeviceProfile | null> {
     else if (gpuData.includes('nvidia')) gpuVendor = "NVIDIA";
     else if (gpuData.includes('amd') || gpuData.includes('radeon')) gpuVendor = "AMD";
     else if (gpuData.includes('apple')) gpuVendor = "APPLE";
+    // Edge sometimes reports "Microsoft Basic Render Driver"
+    else if (gpuData.includes('microsoft')) gpuVendor = "MICROSOFT";
 
     const rawTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const rawPlat = navigator.platform;
@@ -168,13 +167,8 @@ export async function generateProfile(): Promise<DeviceProfile | null> {
     const masterString = `${anchors.gpu}||${anchors.tz}||${anchors.platform}||${anchors.fontsHash}`;
     const masterID = await sha256(masterString);
 
-    const canvasHash = await getCanvasHash();
-    const instanceString = `${masterID}||${canvasHash}||${screen.width}`;
-    const instanceID = await sha256(instanceString);
-
     return {
         master_id: masterID,
-        instance_id: instanceID,
         confidence_score: confidence.toFixed(2),
         wallet_address: "none",
         meta: anchors

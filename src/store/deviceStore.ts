@@ -9,7 +9,6 @@ interface DeviceAnchors {
 
 interface DeviceProfile {
     master_id: string;
-    instance_id: string;
     confidence_score: string;
     wallet_address: string;
     meta: DeviceAnchors;

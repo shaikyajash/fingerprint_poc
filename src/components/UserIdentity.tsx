@@ -101,6 +101,7 @@ export function UserIdentity() {
         <div id="user-details">
             <div className="profile-card">
                 <h2>User Identity</h2>
+                <p className="version-tag">v2.1 - Cross-Browser Stable</p>
 
                 <div className="detail-row">
                     <span className="label">Master ID:</span>
@@ -109,15 +110,6 @@ export function UserIdentity() {
                 <MatchInput
                     targetValue={profile.master_id}
                     placeholder="Paste Master ID to compare..."
-                />
-
-                <div className="detail-row">
-                    <span className="label">Instance ID:</span>
-                    <CopyableValue value={profile.instance_id} />
-                </div>
-                <MatchInput
-                    targetValue={profile.instance_id}
-                    placeholder="Paste Instance ID to compare..."
                 />
 
                 <div className="detail-row">

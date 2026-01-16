@@ -33,7 +33,6 @@ interface SignalData {
     hdrSupport: boolean;
     reducedMotion: boolean;
     pdfViewer: boolean;
-    mathFingerprint: string;
     tzOffset: number;
     platform: string;
 }
@@ -98,7 +97,6 @@ export function UserIdentity() {
         { label: 'HDR Support', current: String(signals.hdrSupport), compare: String(compareData?.hdrSupport ?? '') },
         { label: 'Reduced Motion', current: String(signals.reducedMotion), compare: String(compareData?.reducedMotion ?? '') },
         { label: 'PDF Viewer', current: String(signals.pdfViewer), compare: String(compareData?.pdfViewer ?? '') },
-        { label: 'Math Fingerprint', current: signals.mathFingerprint.substring(0, 20) + '...', compare: compareData?.mathFingerprint?.substring(0, 20) + '...' },
         { label: 'Timezone Offset', current: String(signals.tzOffset), compare: String(compareData?.tzOffset || '') },
         { label: 'Platform', current: signals.platform, compare: compareData?.platform },
     ];
@@ -108,7 +106,7 @@ export function UserIdentity() {
             {/* Header */}
             <header className="header">
                 <h1 className="title">Fingerprint Debugger</h1>
-                <p className="subtitle">12 cross-browser stable signals for unique device identification</p>
+                <p className="subtitle">11 cross-browser stable signals for unique device identification</p>
             </header>
 
             {/* Main Grid */}
@@ -163,7 +161,7 @@ export function UserIdentity() {
             {/* Metrics Table */}
             <div className="panel table-panel">
                 <div className="table-header">
-                    <h3>Fingerprint Vectors (12 Signals)</h3>
+                    <h3>Fingerprint Vectors (11 Signals)</h3>
                     <span className="hint">RED = mismatch between browsers</span>
                 </div>
                 <table className="metrics-table">

@@ -3,19 +3,18 @@ import { useDeviceStore, type DeviceProfile, type DeviceAnchors } from '../store
 /**
  * DeviceHash SDK - Cross-Browser Stable + High Entropy
  * 
- * 12 Signals:
+ * 11 Stable Signals:
  * - GPU Vendor (WebGL)
- * - Timezone Offset (System)
- * - Platform/OS (System)
- * - Color Depth (Hardware)
  * - CPU Cores Bucket (Hardware)
  * - Screen Aspect Ratio (Hardware)
+ * - Color Depth (Hardware)
  * - Touch Support (Hardware)
- * - HDR Support (Hardware/Display)
- * - Preferred Reduced Motion (System)
  * - Hover Capability (Input)
- * - PDF Viewer Enabled (Browser capability)
- * - Math Fingerprint (JavaScript engine)
+ * - HDR Support (Hardware/Display)
+ * - Reduced Motion (System)
+ * - PDF Viewer (Browser capability)
+ * - Timezone Offset (System)
+ * - Platform/OS (System)
  */
 
 const config = {
@@ -133,6 +132,55 @@ function getScreenRatio(): string {
     return "21:9+";
 }
 
+// Available screen height - differs per monitor/taskbar setup
+function getAvailableScreen(): string {
+    // Use height bucket (more unique than exact value)
+    const availH = screen.availHeight;
+    if (availH < 600) return "S";
+    if (availH < 800) return "M";
+    if (availH < 1000) return "L";
+    if (availH < 1200) return "XL";
+    return "XXL";
+}
+
+// GPU Renderer Hash - more specific than vendor, normalized
+function getGPURendererHash(): string {
+    try {
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl') as WebGLRenderingContext | null;
+        if (!gl) return "NONE";
+
+        let renderer = (gl.getParameter(gl.RENDERER) || "").toLowerCase();
+
+        // Try to get unmasked renderer
+        const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+        if (debugInfo) {
+            renderer = (gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || renderer).toLowerCase();
+        }
+
+        // Normalize by extracting key parts
+        // Remove browser-specific strings
+        renderer = renderer
+            .replace(/angle \(|\)/g, '')
+            .replace(/direct3d\d*/g, '')
+            .replace(/vs_\d+_\d+/g, '')
+            .replace(/ps_\d+_\d+/g, '')
+            .replace(/opengl engine/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        // Create short hash from first 30 chars
+        return renderer.substring(0, 30);
+    } catch { return "ERROR"; }
+}
+
+// Connection type - network capability (4g, wifi, etc)
+function getConnectionType(): string {
+    const conn = (navigator as Navigator & { connection?: { effectiveType?: string } }).connection;
+    if (!conn) return "UNKNOWN";
+    return conn.effectiveType || "UNKNOWN";
+}
+
 // Touch capability - hardware based
 function getTouchSupport(): string {
     const maxTouch = navigator.maxTouchPoints || 0;
@@ -167,23 +215,77 @@ function getPDFViewer(): boolean {
     return navigator.pdfViewerEnabled ?? true;
 }
 
-// Math fingerprint - JavaScript engine differences
-function getMathFingerprint(): string {
-    try {
-        const values = [
-            Math.tan(-1e300),
-            Math.sin(1),
-            Math.cos(1),
-            Math.exp(1),
-            Math.log(2),
-            Math.sqrt(2),
-            Math.atan2(1, 2),
-            Math.pow(Math.PI, -100)
-        ];
-        // Round to avoid floating point precision differences
-        const rounded = values.map(v => v.toFixed(10));
-        return rounded.join(',').substring(0, 50);
-    } catch { return "ERROR"; }
+// Speech Synthesis Voices - varies by OS, language packs, device
+let cachedVoicesFingerprint: string | null = null;
+
+function getVoicesFingerprint(): Promise<string> {
+    // Return cached result if available
+    if (cachedVoicesFingerprint) {
+        return Promise.resolve(cachedVoicesFingerprint);
+    }
+
+    return new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+            // If timeout, return a fallback based on whatever we have
+            const voices = window.speechSynthesis?.getVoices() || [];
+            if (voices.length > 0) {
+                const result = buildVoicesFingerprint(voices);
+                cachedVoicesFingerprint = result;
+                resolve(result);
+            } else {
+                resolve("NO_VOICES");
+            }
+        }, 500);
+
+        try {
+            if (!window.speechSynthesis) {
+                clearTimeout(timeout);
+                resolve("NO_API");
+                return;
+            }
+
+            const processVoices = (voices: SpeechSynthesisVoice[]) => {
+                if (voices.length === 0) return false;
+
+                clearTimeout(timeout);
+                const result = buildVoicesFingerprint(voices);
+                cachedVoicesFingerprint = result;
+                resolve(result);
+                return true;
+            };
+
+            // Try immediately
+            const voices = speechSynthesis.getVoices();
+            if (processVoices(voices)) return;
+
+            // Wait for voices to load
+            speechSynthesis.onvoiceschanged = () => {
+                processVoices(speechSynthesis.getVoices());
+            };
+
+        } catch {
+            clearTimeout(timeout);
+            resolve("ERROR");
+        }
+    });
+}
+
+function buildVoicesFingerprint(voices: SpeechSynthesisVoice[]): string {
+    // Count voices by language prefix
+    const langCounts: Record<string, number> = {};
+    voices.forEach(v => {
+        const lang = v.lang.split('-')[0]; // en, es, de, etc.
+        langCounts[lang] = (langCounts[lang] || 0) + 1;
+    });
+
+    // Create a fingerprint: total count + top 3 languages
+    const sorted = Object.entries(langCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([lang, count]) => `${lang}:${count}`)
+        .join('-');
+
+    return `V${voices.length}_${sorted}`;
 }
 
 // Platform
@@ -237,22 +339,21 @@ export async function generateProfile(): Promise<DeviceProfile | null> {
         gpuVendor: getGPUVendor(),
         cpuBucket: getCPUBucket(),
         screenRatio: getScreenRatio(),
+        availScreen: getAvailableScreen(), // Removed from fingerprint - changes with zoom
         colorDepth: getColorDepth(),
         touchSupport: getTouchSupport(),
         hoverType: getHoverCapability(),
         hdrSupport: getHDRSupport(),
         reducedMotion: getReducedMotion(),
         pdfViewer: getPDFViewer(),
-        mathFingerprint: getMathFingerprint(),
         tzOffset: getTimezoneOffset(),
         platform: getPlatform()
     };
 
     // Debug logging
-    console.log("%c ===== 12 HIGH-ENTROPY SIGNALS =====", "background: purple; color: white; font-size: 14px;");
+    console.log("%c ===== 11 STABLE SIGNALS =====", "background: green; color: white; font-size: 14px;");
     console.table(signals);
 
-    // Master string from all stable signals
     const masterString = [
         signals.gpuVendor,
         signals.cpuBucket,
@@ -263,7 +364,6 @@ export async function generateProfile(): Promise<DeviceProfile | null> {
         signals.hdrSupport,
         signals.reducedMotion,
         signals.pdfViewer,
-        signals.mathFingerprint,
         signals.tzOffset,
         signals.platform
     ].join("||");
@@ -277,7 +377,7 @@ export async function generateProfile(): Promise<DeviceProfile | null> {
         gpu: signals.gpuVendor,
         tz: timezone,
         platform: signals.platform,
-        fontsHash: `CPU:${signals.cpuBucket}|SCR:${signals.screenRatio}`
+        fontsHash: `CPU:${signals.cpuBucket}|RATIO:${signals.screenRatio}`
     };
 
     return {
@@ -288,7 +388,7 @@ export async function generateProfile(): Promise<DeviceProfile | null> {
     };
 }
 
-// Export signals for UI display (12 signals)
+// Export signals for UI display (11 signals)
 export function getSignals() {
     return {
         gpuVendor: getGPUVendor(),
@@ -300,7 +400,6 @@ export function getSignals() {
         hdrSupport: getHDRSupport(),
         reducedMotion: getReducedMotion(),
         pdfViewer: getPDFViewer(),
-        mathFingerprint: getMathFingerprint(),
         tzOffset: getTimezoneOffset(),
         platform: getPlatform()
     };

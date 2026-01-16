@@ -143,44 +143,6 @@ function getAvailableScreen(): string {
     return "XXL";
 }
 
-// GPU Renderer Hash - more specific than vendor, normalized
-function getGPURendererHash(): string {
-    try {
-        const canvas = document.createElement('canvas');
-        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl') as WebGLRenderingContext | null;
-        if (!gl) return "NONE";
-
-        let renderer = (gl.getParameter(gl.RENDERER) || "").toLowerCase();
-
-        // Try to get unmasked renderer
-        const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-        if (debugInfo) {
-            renderer = (gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || renderer).toLowerCase();
-        }
-
-        // Normalize by extracting key parts
-        // Remove browser-specific strings
-        renderer = renderer
-            .replace(/angle \(|\)/g, '')
-            .replace(/direct3d\d*/g, '')
-            .replace(/vs_\d+_\d+/g, '')
-            .replace(/ps_\d+_\d+/g, '')
-            .replace(/opengl engine/g, '')
-            .replace(/\s+/g, ' ')
-            .trim();
-
-        // Create short hash from first 30 chars
-        return renderer.substring(0, 30);
-    } catch { return "ERROR"; }
-}
-
-// Connection type - network capability (4g, wifi, etc)
-function getConnectionType(): string {
-    const conn = (navigator as Navigator & { connection?: { effectiveType?: string } }).connection;
-    if (!conn) return "UNKNOWN";
-    return conn.effectiveType || "UNKNOWN";
-}
-
 // Touch capability - hardware based
 function getTouchSupport(): string {
     const maxTouch = navigator.maxTouchPoints || 0;
@@ -213,79 +175,6 @@ function getHoverCapability(): string {
 // PDF Viewer - browser capability
 function getPDFViewer(): boolean {
     return navigator.pdfViewerEnabled ?? true;
-}
-
-// Speech Synthesis Voices - varies by OS, language packs, device
-let cachedVoicesFingerprint: string | null = null;
-
-function getVoicesFingerprint(): Promise<string> {
-    // Return cached result if available
-    if (cachedVoicesFingerprint) {
-        return Promise.resolve(cachedVoicesFingerprint);
-    }
-
-    return new Promise((resolve) => {
-        const timeout = setTimeout(() => {
-            // If timeout, return a fallback based on whatever we have
-            const voices = window.speechSynthesis?.getVoices() || [];
-            if (voices.length > 0) {
-                const result = buildVoicesFingerprint(voices);
-                cachedVoicesFingerprint = result;
-                resolve(result);
-            } else {
-                resolve("NO_VOICES");
-            }
-        }, 500);
-
-        try {
-            if (!window.speechSynthesis) {
-                clearTimeout(timeout);
-                resolve("NO_API");
-                return;
-            }
-
-            const processVoices = (voices: SpeechSynthesisVoice[]) => {
-                if (voices.length === 0) return false;
-
-                clearTimeout(timeout);
-                const result = buildVoicesFingerprint(voices);
-                cachedVoicesFingerprint = result;
-                resolve(result);
-                return true;
-            };
-
-            // Try immediately
-            const voices = speechSynthesis.getVoices();
-            if (processVoices(voices)) return;
-
-            // Wait for voices to load
-            speechSynthesis.onvoiceschanged = () => {
-                processVoices(speechSynthesis.getVoices());
-            };
-
-        } catch {
-            clearTimeout(timeout);
-            resolve("ERROR");
-        }
-    });
-}
-
-function buildVoicesFingerprint(voices: SpeechSynthesisVoice[]): string {
-    // Count voices by language prefix
-    const langCounts: Record<string, number> = {};
-    voices.forEach(v => {
-        const lang = v.lang.split('-')[0]; // en, es, de, etc.
-        langCounts[lang] = (langCounts[lang] || 0) + 1;
-    });
-
-    // Create a fingerprint: total count + top 3 languages
-    const sorted = Object.entries(langCounts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-        .map(([lang, count]) => `${lang}:${count}`)
-        .join('-');
-
-    return `V${voices.length}_${sorted}`;
 }
 
 // Platform

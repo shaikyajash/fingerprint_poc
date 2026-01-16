@@ -6,13 +6,25 @@ import { useDeviceStore, type DeviceProfile, type DeviceAnchors } from '../store
  * - Aggressively normalizes GPU strings
  */
 
+
 const config = {
     blockedStorageKey: "DH_BLACKLIST",
     // Reduced list to the most "Hardcore Stable" fonts
     fontList: [
-        "Arial", "Courier New", "Georgia", "Impact",
-        "Lucida Console", "Tahoma", "Times New Roman",
-        "Trebuchet MS", "Verdana", "Segoe UI"
+        // --- Windows Standards ---
+        "Arial", "Arial Black", "Calibri", "Cambria", "Comic Sans MS",
+        "Courier New", "Georgia", "Impact", "Lucida Console",
+        "Microsoft Sans Serif", "Segoe UI", "Tahoma", "Times New Roman",
+        "Trebuchet MS", "Verdana",
+
+        // --- Mac Standards (Critical for separating Apple users) ---
+        "Helvetica", "Monaco", "Palatino",
+
+        // --- Linux/Android Standards ---
+        "Roboto", "Ubuntu", "Open Sans",
+
+        // --- Distinctive / Older Office Fonts (Good for identifying specific Office versions) ---
+        "Century Gothic", "Franklin Gothic Medium", "Arial Narrow", "Book Antiqua"
     ]
 };
 

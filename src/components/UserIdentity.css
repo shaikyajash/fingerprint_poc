@@ -1,0 +1,153 @@
+#user-details {
+    width: 100%;
+    max-width: 600px;
+}
+
+.loading {
+    color: #fff;
+    font-size: 1.5rem;
+    text-align: center;
+    animation: pulse 1.5s infinite;
+}
+
+.error {
+    color: #ef4444;
+    font-size: 1.2rem;
+    text-align: center;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.profile-card {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    padding: 30px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.profile-card h2 {
+    color: #fff;
+    font-size: 1.8rem;
+    margin-bottom: 25px;
+    text-align: center;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.profile-card h3 {
+    color: #94a3b8;
+    font-size: 1.2rem;
+    margin: 25px 0 15px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+}
+
+.label {
+    color: #94a3b8;
+    font-weight: 500;
+}
+
+.value {
+    color: #fff;
+    font-family: 'Consolas', monospace;
+    font-size: 0.85rem;
+    max-width: 300px;
+    word-break: break-all;
+    text-align: right;
+}
+
+.value.score {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #10b981;
+}
+
+.value.wallet-connected {
+    color: #a78bfa;
+}
+
+.copyable {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.copyable:hover {
+    color: #60a5fa;
+    transform: scale(1.02);
+}
+
+.copy-icon {
+    font-size: 0.9rem;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+    display: flex;
+    align-items: center;
+}
+
+.copyable:hover .copy-icon {
+    opacity: 1;
+}
+
+.match-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0 15px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.match-input {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: #fff;
+    font-family: 'Consolas', monospace;
+    font-size: 0.8rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.match-input:focus {
+    border-color: #60a5fa;
+}
+
+.match-input::placeholder {
+    color: #64748b;
+}
+
+.match-result {
+    font-weight: bold;
+    font-size: 0.9rem;
+    min-width: 100px;
+    text-align: center;
+}
+
+.match-result.match {
+    color: #10b981;
+}
+
+.match-result.no-match {
+    color: #ef4444;
+}

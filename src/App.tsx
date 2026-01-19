@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { UserIdentity } from './components/UserIdentity';
 import { useDeviceStore } from './store/deviceStore';
-import { getFingerprint, initWalletListener } from './lib/deviceHash';
+import { getFingerprint } from './lib/deviceHash';
 import './App.css';
 
 function App() {
@@ -14,12 +14,8 @@ function App() {
         if (result && result.hash) {
           setProfile({
             master_id: result.hash,
-            fingerprint: result.fingerprint,
-            wallet_address: 'none'
+            fingerprint: result.fingerprint
           });
-
-          // Start listening for wallet changes
-          initWalletListener();
         } else {
           setError('Failed to generate fingerprint');
         }

@@ -88,15 +88,6 @@ export function UserIdentity() {
 
                         <label className="label">Total Signals</label>
                         <div className="confidence">{items.length} fields</div>
-
-                        {profile.wallet_address && profile.wallet_address !== 'none' && (
-                            <>
-                                <label className="label">Wallet</label>
-                                <div className="wallet connected">
-                                    {profile.wallet_address}
-                                </div>
-                            </>
-                        )}
                     </div>
 
                     <div className="button-row">

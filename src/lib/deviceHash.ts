@@ -10,10 +10,6 @@ declare global {
     }
     interface Window {
         openDatabase?: unknown;
-        ethereum?: {
-            request: (args: { method: string }) => Promise<string[]>;
-            on: (event: string, callback: (accounts: string[]) => void) => void;
-        };
     }
 }
 
@@ -41,7 +37,7 @@ export async function getFingerprint() {
         arc: null, // not natively exposed
         hardware_concurrency: navigator.hardwareConcurrency ?? null,
         device_memory: navigator.deviceMemory ?? null,
-        max_touch_points: navigator.maxTouchPoints ?? null,
+
 
         /* ===== BROWSER ===== */
         user_agent: navigator.userAgent ?? null,
@@ -81,8 +77,7 @@ export async function getFingerprint() {
 
         /* ===== TOUCH / POINTER ===== */
         touch_event: "ontouchstart" in window ? "supported" : "not_supported",
-        touch_start:
-            navigator.maxTouchPoints > 0 ? "supported" : "not_supported",
+
 
         pointer_hover:
             matchMedia("(hover: hover)").matches ? "hover" : "no_hover",
@@ -199,22 +194,4 @@ export async function getFingerprint() {
     console.log("Total stable fields:", Object.keys(fp).length);
 
     return { fingerprint: fp, hash };
-}
-
-// Keep initWalletListener as it is likely needed for the app but separate from the pure FP script
-export function initWalletListener(): void {
-    if (window.ethereum) {
-        window.ethereum.request({ method: 'eth_accounts' })
-            .then(accounts => {
-                if (accounts.length > 0) {
-                    console.log(`%c WALLET DETECTED: ${accounts[0]}`, "background: #5d00ff; color: white;");
-                }
-            }).catch(() => { });
-
-        window.ethereum.on('accountsChanged', (accounts: string[]) => {
-            if (accounts.length > 0) {
-                console.log(`%c WALLET CHANGED: ${accounts[0]}`, "background: #5d00ff; color: white;");
-            }
-        });
-    }
 }

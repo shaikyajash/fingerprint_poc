@@ -1,17 +1,12 @@
 import { create } from 'zustand';
 
-interface DeviceAnchors {
-    gpu: string;
-    tz: string;
-    platform: string;
-    fontsHash: string;
-}
-
-interface DeviceProfile {
+// Generic profile to support any structure returned by the script
+export interface DeviceProfile {
     master_id: string;
-    confidence_score: string;
-    wallet_address: string;
-    meta: DeviceAnchors;
+    // The script returns 'fingerprint' object with various keys
+    // We treat it as a Record<string, any> to display whatever the script returns
+    fingerprint: Record<string, any>;
+    wallet_address?: string;
 }
 
 interface DeviceState {
@@ -32,12 +27,9 @@ export const useDeviceStore = create<DeviceState>((set) => ({
     setWalletAddress: (address) => set((state) => ({
         profile: state.profile ? {
             ...state.profile,
-            wallet_address: address,
-            confidence_score: '1.00'
+            wallet_address: address
         } : null
     })),
     setLoading: (isLoading) => set({ isLoading }),
     setError: (error) => set({ error, isLoading: false })
 }));
-
-export type { DeviceProfile, DeviceAnchors };

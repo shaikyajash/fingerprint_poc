@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useDeviceStore } from '../store/deviceStore';
-import { getSignals } from '../lib/deviceHash';
 import './UserIdentity.css';
 
 const CopyIcon = () => (
@@ -23,35 +22,16 @@ const CheckIcon = () => (
     </svg>
 );
 
-interface SignalData {
-    gpuVendor: string;
-    cpuBucket: string;
-    screenRatio: string;
-    colorDepth: number;
-    touchSupport: string;
-    hoverType: string;
-    hdrSupport: boolean;
-    reducedMotion: boolean;
-    pdfViewer: boolean;
-    tzOffset: number;
-    platform: string;
-}
-
 export function UserIdentity() {
     const { profile, isLoading } = useDeviceStore();
     const [copied, setCopied] = useState(false);
     const [compareInput, setCompareInput] = useState('');
-    const [compareData, setCompareData] = useState<SignalData | null>(null);
+    const [compareData, setCompareData] = useState<Record<string, any> | null>(null);
     const [compareError, setCompareError] = useState('');
-    const [signals, setSignals] = useState<SignalData | null>(null);
-
-    useEffect(() => {
-        setSignals(getSignals());
-    }, []);
 
     const handleCopy = async () => {
-        if (!signals) return;
-        await navigator.clipboard.writeText(JSON.stringify(signals, null, 2));
+        if (!profile?.fingerprint) return;
+        await navigator.clipboard.writeText(JSON.stringify(profile.fingerprint, null, 2));
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
@@ -71,7 +51,7 @@ export function UserIdentity() {
         window.location.reload();
     };
 
-    if (isLoading || !signals) {
+    if (isLoading) {
         return (
             <div className="container">
                 <p className="loading">Calculating fingerprint...</p>
@@ -87,44 +67,36 @@ export function UserIdentity() {
         );
     }
 
-    const metrics = [
-        { label: 'GPU Vendor', current: signals.gpuVendor, compare: compareData?.gpuVendor },
-        { label: 'CPU Bucket', current: signals.cpuBucket, compare: compareData?.cpuBucket },
-        { label: 'Screen Ratio', current: signals.screenRatio, compare: compareData?.screenRatio },
-        { label: 'Color Depth', current: String(signals.colorDepth), compare: String(compareData?.colorDepth || '') },
-        { label: 'Touch Support', current: signals.touchSupport, compare: compareData?.touchSupport },
-        { label: 'Hover Type', current: signals.hoverType, compare: compareData?.hoverType },
-        { label: 'HDR Support', current: String(signals.hdrSupport), compare: String(compareData?.hdrSupport ?? '') },
-        { label: 'Reduced Motion', current: String(signals.reducedMotion), compare: String(compareData?.reducedMotion ?? '') },
-        { label: 'PDF Viewer', current: String(signals.pdfViewer), compare: String(compareData?.pdfViewer ?? '') },
-        { label: 'Timezone Offset', current: String(signals.tzOffset), compare: String(compareData?.tzOffset || '') },
-        { label: 'Platform', current: signals.platform, compare: compareData?.platform },
-    ];
+    const fingerprint = profile.fingerprint;
+    const items = Object.entries(fingerprint);
 
     return (
         <div className="container">
             {/* Header */}
             <header className="header">
                 <h1 className="title">Fingerprint Debugger</h1>
-                <p className="subtitle">11 cross-browser stable signals for unique device identification</p>
+                <p className="subtitle">Raw device signals collected by the script</p>
             </header>
 
             {/* Main Grid */}
             <div className="main-grid">
                 {/* Left: Current Identity */}
                 <div className="panel identity-panel">
-                    <div className="panel-accent cyan"></div>
                     <div className="panel-content">
-                        <label className="label">Master ID</label>
+                        <label className="label">Master ID (SHA-256)</label>
                         <div className="hash-display">{profile.master_id}</div>
 
-                        <label className="label">Confidence</label>
-                        <div className="confidence">{(parseFloat(profile.confidence_score) * 100).toFixed(0)}%</div>
+                        <label className="label">Total Signals</label>
+                        <div className="confidence">{items.length} fields</div>
 
-                        <label className="label">Wallet</label>
-                        <div className={`wallet ${profile.wallet_address !== 'none' ? 'connected' : ''}`}>
-                            {profile.wallet_address}
-                        </div>
+                        {profile.wallet_address && profile.wallet_address !== 'none' && (
+                            <>
+                                <label className="label">Wallet</label>
+                                <div className="wallet connected">
+                                    {profile.wallet_address}
+                                </div>
+                            </>
+                        )}
                     </div>
 
                     <div className="button-row">
@@ -141,7 +113,6 @@ export function UserIdentity() {
 
                 {/* Right: Comparator */}
                 <div className="panel compare-panel">
-                    <div className="panel-accent orange"></div>
                     <div className="panel-content">
                         <label className="label">Cross-Browser Comparator</label>
                         <textarea
@@ -150,6 +121,7 @@ export function UserIdentity() {
                             value={compareInput}
                             onChange={(e) => setCompareInput(e.target.value)}
                         />
+
                         {compareError && <p className="error-text">{compareError}</p>}
                         <button className="btn btn-orange full-width" onClick={handleCompare}>
                             Compare & Highlight Diffs
@@ -161,47 +133,61 @@ export function UserIdentity() {
             {/* Metrics Table */}
             <div className="panel table-panel">
                 <div className="table-header">
-                    <h3>Fingerprint Vectors (11 Signals)</h3>
+                    <h3>Fingerprint Signals</h3>
                     <span className="hint">RED = mismatch between browsers</span>
                 </div>
-                <table className="metrics-table">
-                    <thead>
-                        <tr>
-                            <th>Signal</th>
-                            <th>Current Browser</th>
-                            <th>Imported</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {metrics.map((m, i) => {
-                            const hasCompare = compareData !== null;
-                            const isMatch = !hasCompare || m.current === m.compare;
-                            return (
-                                <tr key={i} className={hasCompare ? (isMatch ? 'match' : 'mismatch') : ''}>
-                                    <td className="metric-label">{m.label}</td>
-                                    <td className="metric-value">{m.current}</td>
-                                    <td className="metric-value">{hasCompare ? (m.compare || '-') : '-'}</td>
-                                    <td className="status">
-                                        {hasCompare && (isMatch ?
-                                            <span className="status-match">MATCH</span> :
-                                            <span className="status-mismatch">DIFF</span>
-                                        )}
-                                    </td>
+                <div className="table-wrapper">
+                    {items.length > 0 ? (
+                        <table className="metrics-table">
+                            <thead>
+                                <tr>
+                                    <th>Field Name</th>
+                                    <th>Current Value</th>
+                                    <th>Imported Value</th>
+                                    <th>Status</th>
                                 </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
+                            </thead>
+                            <tbody>
+                                {items.map(([key, rawVal]) => {
+                                    const valStr = typeof rawVal === 'object' ? JSON.stringify(rawVal) : String(rawVal);
+
+                                    const hasCompare = compareData !== null;
+                                    const compareVal = hasCompare ? compareData[key] : undefined;
+                                    const compareStr = hasCompare
+                                        ? (typeof compareVal === 'object' ? JSON.stringify(compareVal) : String(compareVal ?? '-'))
+                                        : '-';
+
+                                    const isMatch = !hasCompare || valStr === compareStr;
+
+                                    return (
+                                        <tr key={key} className={hasCompare ? (isMatch ? 'match' : 'mismatch') : ''}>
+                                            <td className="metric-label">{key}</td>
+                                            <td className="metric-value">{valStr}</td>
+                                            <td className="metric-value">{compareStr}</td>
+                                            <td className="status">
+                                                {hasCompare && (isMatch ?
+                                                    <span className="status-match">MATCH</span> :
+                                                    <span className="status-mismatch">DIFF</span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    ) : (
+                        <div className="loading">No fingerprint signals found. Script might have failed or return empty object.</div>
+                    )}
+                </div>
             </div>
 
             {/* Raw Output */}
             <div className="panel raw-panel">
-                <label className="label">Raw JSON Output (Copy this to compare in another browser)</label>
+                <label className="label">Raw JSON Output</label>
                 <textarea
                     className="raw-output"
                     readOnly
-                    value={JSON.stringify(signals, null, 2)}
+                    value={JSON.stringify(fingerprint, null, 2)}
                 />
             </div>
         </div>

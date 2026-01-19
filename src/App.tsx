@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { UserIdentity } from './components/UserIdentity';
 import { useDeviceStore } from './store/deviceStore';
-import { generateProfile, initWalletListener } from './lib/deviceHash';
+import { getFingerprint, initWalletListener } from './lib/deviceHash';
 import './App.css';
 
 function App() {
@@ -10,16 +10,18 @@ function App() {
   useEffect(() => {
     const init = async () => {
       try {
-        const profile = await generateProfile();
-        if (profile) {
-          setProfile(profile);
-          console.log("%c IDENTITY GENERATED", "color: #0f0; font-weight: bold; font-size: 16px;");
-          console.table(profile);
+        const result = await getFingerprint();
+        if (result && result.hash) {
+          setProfile({
+            master_id: result.hash,
+            fingerprint: result.fingerprint,
+            wallet_address: 'none'
+          });
 
-          // Start listening for wallet changes - will update store reactively
+          // Start listening for wallet changes
           initWalletListener();
         } else {
-          setError('User is blacklisted');
+          setError('Failed to generate fingerprint');
         }
       } catch (err) {
         setError('Failed to generate profile');
